@@ -300,13 +300,13 @@ def build_html(forecast, run_time):
             temps_html = f'''<div class="temps">
           <div class="t-item">
             <span class="t-label">최고</span>
-            <span class="high">{day["t_max"]:.1f}°C</span>
-            <span class="fahrenheit">{c_to_f(day["t_max"]):.1f}°F</span>
+            <span class="high temp-primary" data-c="{day["t_max"]:.1f}" data-f="{c_to_f(day["t_max"]):.1f}"></span>
+            <span class="fahrenheit temp-secondary" data-c="{day["t_max"]:.1f}" data-f="{c_to_f(day["t_max"]):.1f}"></span>
           </div>
           <div class="t-item">
             <span class="t-label">최저</span>
-            <span class="low">{day["t_min"]:.1f}°C</span>
-            <span class="fahrenheit">{c_to_f(day["t_min"]):.1f}°F</span>
+            <span class="low temp-primary" data-c="{day["t_min"]:.1f}" data-f="{c_to_f(day["t_min"]):.1f}"></span>
+            <span class="fahrenheit temp-secondary" data-c="{day["t_min"]:.1f}" data-f="{c_to_f(day["t_min"]):.1f}"></span>
           </div>
         </div>'''
         else:
@@ -401,6 +401,35 @@ def build_html(forecast, run_time):
   }}
 
   .theme-toggle:hover {{
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 8px 20px var(--card-shadow-hover);
+  }}
+
+  .unit-toggle {{
+    position: fixed;
+    top: 20px;
+    right: 74px;
+    height: 44px;
+    min-width: 44px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--toggle-border);
+    background: var(--toggle-bg);
+    color: var(--text);
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px var(--card-shadow);
+    transition: background 0.4s ease, border-color 0.4s ease,
+                box-shadow 0.2s ease, transform 0.2s ease;
+    z-index: 100;
+  }}
+
+  .unit-toggle:hover {{
     transform: translateY(-2px) scale(1.05);
     box-shadow: 0 8px 20px var(--card-shadow-hover);
   }}
@@ -821,6 +850,8 @@ def build_html(forecast, run_time):
 </script>
 </head>
 <body>
+  <button class="unit-toggle" id="unitToggle" type="button"
+          aria-label="온도 단위 전환" title="섭씨/화씨 전환">°C</button>
   <button class="theme-toggle" id="themeToggle" type="button"
           aria-label="다크모드 전환" title="다크모드 전환">🌙</button>
   <div class="container">
@@ -863,6 +894,51 @@ def build_html(forecast, run_time):
           localStorage.setItem("weather-theme", isDark ? "light" : "dark");
         }} catch (e) {{}}
         syncIcon();
+      }});
+    }})();
+
+    (function () {{
+      var unitToggle = document.getElementById("unitToggle");
+      var unit = "c";
+      try {{
+        var savedUnit = localStorage.getItem("weather-unit");
+        if (savedUnit === "f") {{
+          unit = "f";
+        }}
+      }} catch (e) {{}}
+
+      function render() {{
+        var isF = unit === "f";
+        var primary = document.querySelectorAll(".temp-primary");
+        var secondary = document.querySelectorAll(".temp-secondary");
+        var i;
+        for (i = 0; i < primary.length; i++) {{
+          var el = primary[i];
+          if (isF) {{
+            el.textContent = el.getAttribute("data-f") + "°F";
+          }} else {{
+            el.textContent = el.getAttribute("data-c") + "°C";
+          }}
+        }}
+        for (i = 0; i < secondary.length; i++) {{
+          var s = secondary[i];
+          if (isF) {{
+            s.textContent = s.getAttribute("data-c") + "°C";
+          }} else {{
+            s.textContent = s.getAttribute("data-f") + "°F";
+          }}
+        }}
+        unitToggle.textContent = isF ? "°F" : "°C";
+      }}
+
+      render();
+
+      unitToggle.addEventListener("click", function () {{
+        unit = unit === "c" ? "f" : "c";
+        try {{
+          localStorage.setItem("weather-unit", unit);
+        }} catch (e) {{}}
+        render();
       }});
     }})();
   </script>
