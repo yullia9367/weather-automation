@@ -178,6 +178,26 @@ def c_to_f(celsius):
     return celsius * 9 / 5 + 32
 
 
+# 날씨 코드 -> 아이콘 애니메이션 종류(CSS 클래스)
+# 맑음은 은은한 회전+발광, 구름/안개는 좌우 흔들림, 비는 빗방울이 떨어지는
+# 느낌, 눈은 살랑살랑, 천둥번개는 가볍게 떨리는 정도로 과하지 않게 매핑한다.
+def weather_anim_class(code):
+    if code is None:
+        return ""
+    if code in (0, 1):
+        return "icon-sun"
+    if code in (95, 96, 99):
+        return "icon-storm"
+    if code in (71, 73, 75, 77, 85, 86):
+        return "icon-snow"
+    if code in (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82):
+        return "icon-rain"
+    if code in (45, 48):
+        return "icon-fog"
+    # 나머지(2 부분적으로 흐림, 3 흐림 등)는 구름 흔들림
+    return "icon-cloud"
+
+
 def build_forecast(week_start, data_map, today_str):
     """이번 주 7일(일~토)을 고정 날짜 셀로 만들고, 있는 데이터만 채운다.
 
@@ -296,7 +316,7 @@ def build_html(forecast, run_time):
             f'''      <div class="{card_class}">{badge}
         <div class="date">{html.escape(day["date_label"])}</div>
         <div class="day">{html.escape(day["weekday_full"])}</div>
-        <div class="icon">{day["emoji"]}</div>
+        <div class="icon {weather_anim_class(day["code"])}">{day["emoji"]}</div>
         <div class="condition">{html.escape(day["desc"])}</div>
         {temps_html}
       </div>'''
@@ -459,6 +479,138 @@ def build_html(forecast, run_time):
     font-size: 2.6rem;
     line-height: 1;
     margin-bottom: 14px;
+    display: inline-block;
+    position: relative;
+    transform-origin: center;
+    /* GPU 가속 힌트 + 애니메이션 기본값 */
+    will-change: transform, filter;
+  }}
+
+  /* ── 날씨 아이콘 CSS 애니메이션 ─────────────────────────────
+     라이트/다크 공통으로 자연스럽게 보이도록 glow 색은 currentColor
+     대신 은은한 파랑/노랑 톤을 쓰고, 과하지 않은 폭·속도로 움직인다. */
+
+  /* 맑음 : 아주 천천히 회전 + 은은한 발광 */
+  .icon-sun {{
+    animation: icon-spin 18s linear infinite,
+               icon-sun-glow 3.5s ease-in-out infinite;
+  }}
+  @keyframes icon-spin {{
+    from {{ transform: rotate(0deg); }}
+    to   {{ transform: rotate(360deg); }}
+  }}
+  @keyframes icon-sun-glow {{
+    0%, 100% {{ filter: drop-shadow(0 0 2px rgba(250, 204, 21, 0.35)); }}
+    50%      {{ filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.75)); }}
+  }}
+
+  /* 구름 : 좌우로 살짝 흔들림 */
+  .icon-cloud {{
+    animation: icon-sway 4.5s ease-in-out infinite;
+  }}
+  @keyframes icon-sway {{
+    0%, 100% {{ transform: translateX(-3px); }}
+    50%      {{ transform: translateX(3px); }}
+  }}
+
+  /* 안개 : 흐릿하게 옅어졌다 진해짐 + 미세한 흔들림 */
+  .icon-fog {{
+    animation: icon-fog-drift 5s ease-in-out infinite;
+  }}
+  @keyframes icon-fog-drift {{
+    0%, 100% {{ transform: translateX(-2px); opacity: 0.65; }}
+    50%      {{ transform: translateX(2px);  opacity: 1; }}
+  }}
+
+  /* 비 : 아이콘은 살짝 떠 있고, 아래로 빗방울이 떨어진다 */
+  .icon-rain {{
+    animation: icon-bob 3s ease-in-out infinite;
+  }}
+  @keyframes icon-bob {{
+    0%, 100% {{ transform: translateY(0); }}
+    50%      {{ transform: translateY(-2px); }}
+  }}
+  .icon-rain::before,
+  .icon-rain::after {{
+    content: "";
+    position: absolute;
+    bottom: -2px;
+    width: 3px;
+    height: 9px;
+    border-radius: 2px;
+    background: linear-gradient(to bottom,
+      rgba(96, 165, 250, 0), var(--accent));
+    opacity: 0;
+  }}
+  .icon-rain::before {{
+    left: 38%;
+    animation: icon-drop 1.4s linear infinite;
+  }}
+  .icon-rain::after {{
+    left: 58%;
+    animation: icon-drop 1.4s linear infinite 0.7s;
+  }}
+  @keyframes icon-drop {{
+    0%   {{ transform: translateY(-6px); opacity: 0; }}
+    30%  {{ opacity: 0.9; }}
+    100% {{ transform: translateY(14px); opacity: 0; }}
+  }}
+
+  /* 눈 : 살랑살랑 좌우로 흔들리며 위아래로 떠다님 */
+  .icon-snow {{
+    animation: icon-snow-float 4s ease-in-out infinite;
+  }}
+  @keyframes icon-snow-float {{
+    0%, 100% {{ transform: translate(-2px, 0) rotate(-4deg); }}
+    50%      {{ transform: translate(2px, -3px) rotate(4deg); }}
+  }}
+
+  /* 천둥번개 : 가끔 번쩍 + 미세한 진동 */
+  .icon-storm {{
+    animation: icon-shake 3.2s ease-in-out infinite,
+               icon-flash 3.2s steps(1, end) infinite;
+  }}
+  @keyframes icon-shake {{
+    0%, 92%, 100% {{ transform: translateX(0); }}
+    94%  {{ transform: translateX(-2px); }}
+    96%  {{ transform: translateX(2px); }}
+    98%  {{ transform: translateX(-1px); }}
+  }}
+  @keyframes icon-flash {{
+    0%, 90%, 100% {{ filter: none; }}
+    93%  {{ filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.9)) brightness(1.4); }}
+  }}
+
+  /* 다크 모드에서 빗방울 대비 보정 (더 밝은 파랑으로) */
+  html[data-theme="dark"] .icon-rain::before,
+  html[data-theme="dark"] .icon-rain::after {{
+    background: linear-gradient(to bottom,
+      rgba(147, 197, 253, 0), #93c5fd);
+  }}
+
+  /* latest(오늘) 카드는 배경이 파랑이라 빗방울을 흰색 계열로 */
+  .card.latest .icon-rain::before,
+  .card.latest .icon-rain::after {{
+    background: linear-gradient(to bottom,
+      rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.9));
+  }}
+
+  /* nodata 카드(지난 날씨/예보 없음)는 움직이지 않게 정지 */
+  .card.nodata .icon {{
+    animation: none !important;
+  }}
+  .card.nodata .icon::before,
+  .card.nodata .icon::after {{
+    display: none;
+  }}
+
+  /* 접근성 : 모션 최소화를 원하는 사용자는 애니메이션 끔 */
+  @media (prefers-reduced-motion: reduce) {{
+    .card .icon,
+    .card .icon::before,
+    .card .icon::after {{
+      animation: none !important;
+    }}
   }}
 
   .card .condition {{
@@ -562,6 +714,98 @@ def build_html(forecast, run_time):
     margin-top: 40px;
     font-size: 0.8rem;
     color: var(--text-muted);
+  }}
+
+  /* ── 모바일 반응형 (폭 768px 이하) ─────────────────────────
+     카드가 좁게 찌그러지지 않도록 1열로 세로 정렬하고, 폰트와
+     여백을 작은 화면에 맞게 줄인다. 다크모드 버튼은 조금 작게
+     만들고, header 에 위쪽 여백을 줘서 고정된 토글 버튼과
+     제목/카드가 서로 겹치지 않게 한다. */
+  @media (max-width: 768px) {{
+    body {{
+      padding: 24px 14px;
+    }}
+
+    .theme-toggle {{
+      top: 12px;
+      right: 12px;
+      width: 38px;
+      height: 38px;
+      font-size: 1.1rem;
+    }}
+
+    .container {{
+      max-width: 100%;
+    }}
+
+    /* 제목이 고정된 다크모드 버튼 아래로 내려오도록 위 여백 확보 */
+    header {{
+      margin-bottom: 28px;
+      padding-top: 34px;
+    }}
+
+    header h1 {{
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }}
+
+    .meta {{
+      font-size: 0.8rem;
+      gap: 4px 14px;
+    }}
+
+    /* 핵심: 카드들을 무조건 1열로 세로로 쌓는다 */
+    .grid {{
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }}
+
+    .card {{
+      padding: 18px 18px;
+      border-radius: 14px;
+    }}
+
+    /* latest 카드가 위로 뜨는 transform 때문에 겹쳐 보이지 않도록 정리 */
+    .card.latest {{
+      transform: none;
+    }}
+
+    .card .date {{
+      font-size: 1.05rem;
+    }}
+
+    .card .day {{
+      font-size: 0.8rem;
+      margin-bottom: 12px;
+    }}
+
+    .card .icon {{
+      font-size: 2.2rem;
+      margin-bottom: 10px;
+    }}
+
+    .card .condition {{
+      font-size: 0.92rem;
+      margin-bottom: 12px;
+    }}
+
+    .temps {{
+      gap: 14px;
+      font-size: 0.85rem;
+    }}
+
+    /* today 배지가 카드 안쪽에 안전하게 들어가도록 위치·크기 조정 */
+    .badge {{
+      top: 12px;
+      right: 12px;
+      font-size: 0.62rem;
+      padding: 2px 7px;
+    }}
+
+    footer {{
+      margin-top: 28px;
+      font-size: 0.75rem;
+    }}
   }}
 </style>
 <script>
