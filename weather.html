@@ -201,6 +201,74 @@
     gap: 20px;
   }
 
+  /* ── 대기질 배지 (지역별 PM2.5 / UV) ───────────────────── */
+  .air-quality {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .aq-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 999px;
+    line-height: 1;
+    border: 1px solid transparent;
+    letter-spacing: -0.01em;
+  }
+
+  /* 좋음=초록 / 보통=노랑 / 나쁨=주황 / 매우나쁨=빨강 */
+  .aq-badge.aq-good {
+    background: #dcfce7;
+    color: #15803d;
+    border-color: #86efac;
+  }
+  .aq-badge.aq-moderate {
+    background: #fef9c3;
+    color: #a16207;
+    border-color: #fde047;
+  }
+  .aq-badge.aq-bad {
+    background: #ffedd5;
+    color: #c2410c;
+    border-color: #fdba74;
+  }
+  .aq-badge.aq-verybad {
+    background: #fee2e2;
+    color: #b91c1c;
+    border-color: #fca5a5;
+  }
+  .aq-badge.aq-none {
+    background: var(--card-border);
+    color: var(--text-muted);
+  }
+
+  /* 다크 모드에서는 채도를 낮춘 반투명 배경으로 대비 확보 */
+  html[data-theme="dark"] .aq-badge.aq-good {
+    background: rgba(34, 197, 94, 0.18);
+    color: #86efac;
+    border-color: rgba(134, 239, 172, 0.4);
+  }
+  html[data-theme="dark"] .aq-badge.aq-moderate {
+    background: rgba(234, 179, 8, 0.18);
+    color: #fde047;
+    border-color: rgba(253, 224, 71, 0.4);
+  }
+  html[data-theme="dark"] .aq-badge.aq-bad {
+    background: rgba(249, 115, 22, 0.18);
+    color: #fdba74;
+    border-color: rgba(253, 186, 116, 0.4);
+  }
+  html[data-theme="dark"] .aq-badge.aq-verybad {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+    border-color: rgba(252, 165, 165, 0.4);
+  }
+
   .card {
     background: var(--card-bg);
     border-radius: 18px;
@@ -585,7 +653,7 @@
       <h1>일주일 날씨 예보<span class="dot">.</span></h1>
       <div class="meta">
         <span>📍 위치 : <strong id="metaLoc"></strong> <span id="metaCoord"></span></span>
-        <span>🕒 실행 시각 : <strong>2026-07-08 10:01</strong></span>
+        <span>🕒 실행 시각 : <strong>2026-07-08 10:06</strong></span>
       </div>
     </header>
 
@@ -598,6 +666,10 @@
 
     <div class="panel active" id="panel-0" role="tabpanel"
          data-name="알렌" data-lat="33.1" data-lon="-96.67">
+      <div class="air-quality">
+        <span class="aq-badge aq-good">PM2.5: 좋음(6㎍/m³)</span>
+        <span class="aq-badge aq-good">UV: 좋음(0)</span>
+      </div>
       <div class="grid">
       <div class="card past">
         <div class="date">07월 05일</div>
@@ -737,6 +809,10 @@
 
     <div class="panel" id="panel-1" role="tabpanel"
          data-name="서울" data-lat="37.57" data-lon="126.98">
+      <div class="air-quality">
+        <span class="aq-badge aq-good">PM2.5: 좋음(5㎍/m³)</span>
+        <span class="aq-badge aq-good">UV: 좋음(1)</span>
+      </div>
       <div class="grid">
       <div class="card past">
         <div class="date">07월 05일</div>

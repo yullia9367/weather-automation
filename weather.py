@@ -104,6 +104,74 @@ WEEKDAYS_FULL = ["월요일", "화요일", "수요일", "목요일", "금요일"
 
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
+
+
+# 대기질 등급 색상 클래스 (좋음=초록 / 보통=노랑 / 나쁨=주황 / 매우나쁨=빨강)
+AQ_GOOD = "aq-good"
+AQ_MODERATE = "aq-moderate"
+AQ_BAD = "aq-bad"
+AQ_VERYBAD = "aq-verybad"
+AQ_NONE = "aq-none"
+
+
+def grade_pm25(value):
+    """PM2.5(㎍/m³) 농도를 WHO/EPA(AQI) 기준으로 4단계 등급 분류한다.
+
+    - 좋음   : 0 ~ 12.0
+    - 보통   : 12.1 ~ 35.4
+    - 나쁨   : 35.5 ~ 55.4
+    - 매우나쁨: 55.5 이상
+    반환: (등급 한글, 색상 클래스)
+    """
+    if value is None:
+        return ("정보 없음", AQ_NONE)
+    if value <= 12.0:
+        return ("좋음", AQ_GOOD)
+    if value <= 35.4:
+        return ("보통", AQ_MODERATE)
+    if value <= 55.4:
+        return ("나쁨", AQ_BAD)
+    return ("매우나쁨", AQ_VERYBAD)
+
+
+def grade_uv(value):
+    """자외선 지수(UV index)를 WHO 기준으로 4단계 등급 분류한다.
+
+    - 좋음(Low)        : 0 ~ 2
+    - 보통(Moderate)   : 3 ~ 5
+    - 나쁨(High)       : 6 ~ 7
+    - 매우나쁨(V.High+): 8 이상
+    반환: (등급 한글, 색상 클래스)
+    """
+    if value is None:
+        return ("정보 없음", AQ_NONE)
+    if value < 3:
+        return ("좋음", AQ_GOOD)
+    if value < 6:
+        return ("보통", AQ_MODERATE)
+    if value < 8:
+        return ("나쁨", AQ_BAD)
+    return ("매우나쁨", AQ_VERYBAD)
+
+
+def fetch_air_quality(latitude, longitude):
+    """Open-Meteo Air Quality API에서 현재 PM2.5 농도와 자외선 지수를 받아온다.
+
+    반환: {"pm25": float|None, "uv": float|None}
+    실패하면 값이 None 인 dict 를 돌려준다.
+    """
+    params = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "current": "pm2_5,uv_index",
+        "timezone": "auto",
+    }
+    url = AIR_QUALITY_URL + "?" + urllib.parse.urlencode(params)
+    with urllib.request.urlopen(url, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    current = data.get("current") or {}
+    return {"pm25": current.get("pm2_5"), "uv": current.get("uv_index")}
 
 
 def week_bounds(today):
@@ -254,7 +322,7 @@ def build_forecast(week_start, data_map, today_str):
     return forecast
 
 
-def build_log_text(forecast, run_time, location):
+def build_log_text(forecast, run_time, location, air=None):
     """weather_log.txt 에 이어 붙일 텍스트 블록을 만든다."""
     loc_str = f"{location['name']} (위도 {location['latitude']}, 경도 {location['longitude']})"
     line = "=" * 56
@@ -264,8 +332,19 @@ def build_log_text(forecast, run_time, location):
         line,
         f"  실행 시각 : {run_time.strftime('%Y-%m-%d %H:%M:%S')}",
         f"  위치 : {loc_str}",
-        line,
     ]
+
+    # 현재 대기질(PM2.5)·자외선 지수 한 줄 추가
+    if air is not None:
+        pm25 = air.get("pm25")
+        uv = air.get("uv")
+        pm_label, _ = grade_pm25(pm25)
+        uv_label, _ = grade_uv(uv)
+        pm_str = f"{pm_label}({pm25:.0f}㎍/m³)" if pm25 is not None else "정보 없음"
+        uv_str = f"{uv_label}({uv:.0f})" if uv is not None else "정보 없음"
+        lines.append(f"  대기질 : PM2.5 {pm_str}  |  UV {uv_str}")
+
+    lines.append(line)
     for day in forecast:
         if day["weekday_short"]:
             date_str = f"{day['date_label']} ({day['weekday_short']})"
@@ -326,6 +405,30 @@ def build_cards_html(forecast):
     return "\n\n".join(cards)
 
 
+def build_air_quality_html(air):
+    """지역 카드 상단에 표시할 PM2.5·UV 배지 HTML을 만든다."""
+    pm25 = air.get("pm25") if air else None
+    uv = air.get("uv") if air else None
+
+    pm_label, pm_class = grade_pm25(pm25)
+    uv_label, uv_class = grade_uv(uv)
+
+    if pm25 is not None:
+        pm_text = f"PM2.5: {pm_label}({pm25:.0f}㎍/m³)"
+    else:
+        pm_text = "PM2.5: 정보 없음"
+
+    if uv is not None:
+        uv_text = f"UV: {uv_label}({uv:.0f})"
+    else:
+        uv_text = "UV: 정보 없음"
+
+    return f'''      <div class="air-quality">
+        <span class="aq-badge {pm_class}">{html.escape(pm_text)}</span>
+        <span class="aq-badge {uv_class}">{html.escape(uv_text)}</span>
+      </div>'''
+
+
 def build_html(location_data, run_time):
     """여러 지역의 예보 데이터로 weather.html 전체 문서를 생성한다.
 
@@ -336,7 +439,7 @@ def build_html(location_data, run_time):
     # 탭 버튼과 각 지역 패널(그리드)을 만든다.
     tab_buttons = []
     panels = []
-    for idx, (location, forecast) in enumerate(location_data):
+    for idx, (location, forecast, air) in enumerate(location_data):
         active = " active" if idx == 0 else ""
         name = html.escape(location["name"])
         tab_buttons.append(
@@ -344,9 +447,11 @@ def build_html(location_data, run_time):
               data-target="panel-{idx}" aria-selected="{"true" if idx == 0 else "false"}">{name}</button>'''
         )
         cards_html = build_cards_html(forecast)
+        aq_html = build_air_quality_html(air)
         panels.append(
             f'''    <div class="panel{active}" id="panel-{idx}" role="tabpanel"
          data-name="{name}" data-lat="{location["latitude"]}" data-lon="{location["longitude"]}">
+{aq_html}
       <div class="grid">
 {cards_html}
       </div>
@@ -556,6 +661,74 @@ def build_html(location_data, run_time):
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 20px;
+  }}
+
+  /* ── 대기질 배지 (지역별 PM2.5 / UV) ───────────────────── */
+  .air-quality {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+  }}
+
+  .aq-badge {{
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 999px;
+    line-height: 1;
+    border: 1px solid transparent;
+    letter-spacing: -0.01em;
+  }}
+
+  /* 좋음=초록 / 보통=노랑 / 나쁨=주황 / 매우나쁨=빨강 */
+  .aq-badge.aq-good {{
+    background: #dcfce7;
+    color: #15803d;
+    border-color: #86efac;
+  }}
+  .aq-badge.aq-moderate {{
+    background: #fef9c3;
+    color: #a16207;
+    border-color: #fde047;
+  }}
+  .aq-badge.aq-bad {{
+    background: #ffedd5;
+    color: #c2410c;
+    border-color: #fdba74;
+  }}
+  .aq-badge.aq-verybad {{
+    background: #fee2e2;
+    color: #b91c1c;
+    border-color: #fca5a5;
+  }}
+  .aq-badge.aq-none {{
+    background: var(--card-border);
+    color: var(--text-muted);
+  }}
+
+  /* 다크 모드에서는 채도를 낮춘 반투명 배경으로 대비 확보 */
+  html[data-theme="dark"] .aq-badge.aq-good {{
+    background: rgba(34, 197, 94, 0.18);
+    color: #86efac;
+    border-color: rgba(134, 239, 172, 0.4);
+  }}
+  html[data-theme="dark"] .aq-badge.aq-moderate {{
+    background: rgba(234, 179, 8, 0.18);
+    color: #fde047;
+    border-color: rgba(253, 224, 71, 0.4);
+  }}
+  html[data-theme="dark"] .aq-badge.aq-bad {{
+    background: rgba(249, 115, 22, 0.18);
+    color: #fdba74;
+    border-color: rgba(253, 186, 116, 0.4);
+  }}
+  html[data-theme="dark"] .aq-badge.aq-verybad {{
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+    border-color: rgba(252, 165, 165, 0.4);
   }}
 
   .card {{
@@ -1095,10 +1268,21 @@ def main():
             continue
 
         forecast = build_forecast(week_start, data_map, today_str)
-        location_data.append((location, forecast))
+
+        # 현재 대기질(PM2.5)·자외선 지수 가져오기 (실패해도 예보는 계속 진행)
+        try:
+            air = fetch_air_quality(location["latitude"], location["longitude"])
+        except Exception as e:
+            print(
+                f"[{location['name']}] 대기질 정보를 가져오지 못했습니다: {e}",
+                file=sys.stderr,
+            )
+            air = {"pm25": None, "uv": None}
+
+        location_data.append((location, forecast, air))
 
         # 텍스트 결과 만들기 + 화면 출력 (지역명으로 구분)
-        log_text = build_log_text(forecast, run_time, location)
+        log_text = build_log_text(forecast, run_time, location, air)
         print(log_text)
         print()
         log_blocks.append(log_text)
