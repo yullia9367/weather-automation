@@ -17,7 +17,7 @@ import html
 import urllib.request
 import urllib.parse
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 LATITUDE = 33.10
 LONGITUDE = -96.67
@@ -100,44 +100,106 @@ WEEKDAYS_KO = ["월", "화", "수", "목", "금", "토", "일"]
 WEEKDAYS_FULL = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"]
 
 
-def fetch_weather():
+FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+
+
+def week_bounds(today):
+    """오늘이 속한 주(일요일~토요일)의 시작일/종료일을 돌려준다.
+
+    Python 의 weekday() 는 월=0 ... 일=6 이므로, 일요일까지 거슬러
+    올라간 날짜가 그 주의 시작(일요일)이 된다.
+    """
+    days_since_sunday = (today.weekday() + 1) % 7
+    week_start = today - timedelta(days=days_since_sunday)
+    week_end = week_start + timedelta(days=6)
+    return week_start, week_end
+
+
+def fetch_range(base_url, start_date, end_date):
+    """지정한 API(base_url)에서 start_date~end_date 구간의 일별 데이터를 받아온다."""
     params = {
         "latitude": LATITUDE,
         "longitude": LONGITUDE,
         "daily": "temperature_2m_max,temperature_2m_min,weather_code",
         "timezone": "auto",
-        "forecast_days": 7,
+        "start_date": start_date.strftime("%Y-%m-%d"),
+        "end_date": end_date.strftime("%Y-%m-%d"),
     }
-    url = "https://api.open-meteo.com/v1/forecast?" + urllib.parse.urlencode(params)
+    url = base_url + "?" + urllib.parse.urlencode(params)
     with urllib.request.urlopen(url, timeout=15) as resp:
         return json.loads(resp.read().decode("utf-8"))
+
+
+def merge_daily(data_map, data):
+    """API 응답의 daily 블록을 날짜 -> 값 dict 로 data_map 에 채워 넣는다."""
+    daily = data.get("daily") or {}
+    times = daily.get("time") or []
+    t_max = daily.get("temperature_2m_max") or []
+    t_min = daily.get("temperature_2m_min") or []
+    codes = daily.get("weather_code") or []
+    for date, tx, tn, code in zip(times, t_max, t_min, codes):
+        # 최고/최저/코드 중 하나라도 결측(None)이면 유효한 데이터로 보지 않는다.
+        if tx is None or tn is None or code is None:
+            continue
+        data_map[date] = {"t_max": tx, "t_min": tn, "code": code}
+
+
+def collect_weekly_data(today):
+    """이번 주(일~토) 7일 치 데이터를 예보 + 과거 날씨 API로 채워 모은다.
+
+    - 오늘 ~ 이번 주 토요일 : Open-Meteo 예보 API
+    - 이번 주 일요일 ~ 어제 : Open-Meteo 과거 날씨(archive) API
+    반환: (week_start, week_end, {날짜문자열: {t_max, t_min, code}})
+    """
+    week_start, week_end = week_bounds(today)
+    data_map = {}
+
+    # 1) 오늘부터 이번 주 토요일까지는 예보 API 로 채운다.
+    try:
+        forecast_data = fetch_range(FORECAST_URL, today, week_end)
+        merge_daily(data_map, forecast_data)
+    except Exception as e:
+        print(f"예보 데이터를 가져오지 못했습니다: {e}", file=sys.stderr)
+
+    # 2) 이번 주에서 이미 지난 날짜(일요일~어제)는 과거 날씨 API 로 채운다.
+    yesterday = today - timedelta(days=1)
+    if week_start <= yesterday:
+        try:
+            archive_data = fetch_range(ARCHIVE_URL, week_start, yesterday)
+            merge_daily(data_map, archive_data)
+        except Exception as e:
+            print(f"과거 날씨 데이터를 가져오지 못했습니다: {e}", file=sys.stderr)
+
+    return week_start, week_end, data_map
 
 
 def c_to_f(celsius):
     return celsius * 9 / 5 + 32
 
 
-def build_forecast(data, today_str):
-    """API 응답을 카드/로그 생성에 쓰기 좋은 dict 리스트로 정리한다."""
-    daily = data["daily"]
+def build_forecast(week_start, data_map, today_str):
+    """이번 주 7일(일~토)을 고정 날짜 셀로 만들고, 있는 데이터만 채운다.
+
+    week_start(일요일)부터 하루씩 7칸을 만든다. 요일 순서는 항상 일~토로
+    고정되며, 데이터가 없는 셀(예: 아직 archive 에 없거나 API 실패)은
+    has_data=False 로 두어 '지난 날씨'/빈 칸 처리를 할 수 있게 한다.
+    """
     forecast = []
-    for date, t_max, t_min, code in zip(
-        daily["time"],
-        daily["temperature_2m_max"],
-        daily["temperature_2m_min"],
-        daily["weather_code"],
-    ):
-        try:
-            dt = datetime.strptime(date, "%Y-%m-%d")
-            weekday_short = WEEKDAYS_KO[dt.weekday()]
-            weekday_full = WEEKDAYS_FULL[dt.weekday()]
-            date_label = dt.strftime("%m월 %d일")
-        except ValueError:
-            weekday_short = ""
-            weekday_full = ""
-            date_label = date
-        forecast.append(
-            {
+    for offset in range(7):
+        dt = week_start + timedelta(days=offset)
+        date = dt.strftime("%Y-%m-%d")
+        weekday_short = WEEKDAYS_KO[dt.weekday()]
+        weekday_full = WEEKDAYS_FULL[dt.weekday()]
+        date_label = dt.strftime("%m월 %d일")
+
+        entry = data_map.get(date)
+        is_today = date == today_str
+        is_past = date < today_str
+
+        if entry is not None:
+            code = entry["code"]
+            day = {
                 "date": date,
                 "date_label": date_label,
                 "weekday_short": weekday_short,
@@ -145,11 +207,28 @@ def build_forecast(data, today_str):
                 "code": code,
                 "desc": WEATHER_CODES.get(code, f"알 수 없음(코드 {code})"),
                 "emoji": WEATHER_EMOJI.get(code, "🌡️"),
-                "t_max": t_max,
-                "t_min": t_min,
-                "is_today": date == today_str,
+                "t_max": entry["t_max"],
+                "t_min": entry["t_min"],
+                "is_today": is_today,
+                "is_past": is_past,
+                "has_data": True,
             }
-        )
+        else:
+            day = {
+                "date": date,
+                "date_label": date_label,
+                "weekday_short": weekday_short,
+                "weekday_full": weekday_full,
+                "code": None,
+                "desc": "지난 날씨" if is_past else "예보 없음",
+                "emoji": "🗓️" if is_past else "❔",
+                "t_max": None,
+                "t_min": None,
+                "is_today": is_today,
+                "is_past": is_past,
+                "has_data": False,
+            }
+        forecast.append(day)
     return forecast
 
 
@@ -171,11 +250,14 @@ def build_log_text(forecast, run_time):
         else:
             date_str = day["date_label"]
         marker = " [today]" if day["is_today"] else ""
-        lines.append(
-            f"  {date_str}{marker}  |  {day['desc']:<10}  |  "
-            f"최고 {day['t_max']:>5.1f}°C / {c_to_f(day['t_max']):>5.1f}°F  |  "
-            f"최저 {day['t_min']:>5.1f}°C / {c_to_f(day['t_min']):>5.1f}°F"
-        )
+        if day["has_data"]:
+            lines.append(
+                f"  {date_str}{marker}  |  {day['desc']:<10}  |  "
+                f"최고 {day['t_max']:>5.1f}°C / {c_to_f(day['t_max']):>5.1f}°F  |  "
+                f"최저 {day['t_min']:>5.1f}°C / {c_to_f(day['t_min']):>5.1f}°F"
+            )
+        else:
+            lines.append(f"  {date_str}{marker}  |  {day['desc']:<10}  |  (데이터 없음)")
     lines.append(line)
     return "\n".join(lines)
 
@@ -184,15 +266,18 @@ def build_html(forecast, run_time):
     """최신 예보 데이터로 weather.html 전체 문서를 생성한다."""
     cards = []
     for day in forecast:
-        card_class = "card latest" if day["is_today"] else "card"
+        classes = ["card"]
+        if day["is_today"]:
+            classes.append("latest")
+        if not day["has_data"]:
+            classes.append("nodata")
+        if day["is_past"]:
+            classes.append("past")
+        card_class = " ".join(classes)
         badge = '\n        <span class="badge">TODAY</span>' if day["is_today"] else ""
-        cards.append(
-            f'''      <div class="{card_class}">{badge}
-        <div class="date">{html.escape(day["date_label"])}</div>
-        <div class="day">{html.escape(day["weekday_full"])}</div>
-        <div class="icon">{day["emoji"]}</div>
-        <div class="condition">{html.escape(day["desc"])}</div>
-        <div class="temps">
+
+        if day["has_data"]:
+            temps_html = f'''<div class="temps">
           <div class="t-item">
             <span class="t-label">최고</span>
             <span class="high">{day["t_max"]:.1f}°C</span>
@@ -203,7 +288,17 @@ def build_html(forecast, run_time):
             <span class="low">{day["t_min"]:.1f}°C</span>
             <span class="fahrenheit">{c_to_f(day["t_min"]):.1f}°F</span>
           </div>
-        </div>
+        </div>'''
+        else:
+            temps_html = '<div class="temps no-temps">데이터 없음</div>'
+
+        cards.append(
+            f'''      <div class="{card_class}">{badge}
+        <div class="date">{html.escape(day["date_label"])}</div>
+        <div class="day">{html.escape(day["weekday_full"])}</div>
+        <div class="icon">{day["emoji"]}</div>
+        <div class="condition">{html.escape(day["desc"])}</div>
+        {temps_html}
       </div>'''
         )
     cards_html = "\n\n".join(cards)
@@ -394,6 +489,24 @@ def build_html(forecast, run_time):
     color: #ffffff;
   }}
 
+  /* No-data / past cells (지난 날씨 · 예보 없음) */
+  .card.nodata {{
+    background: repeating-linear-gradient(
+      135deg, #f1f5f9, #f1f5f9 10px, #eef2f7 10px, #eef2f7 20px);
+    color: var(--text-muted);
+    box-shadow: none;
+  }}
+
+  .card.nodata .icon,
+  .card.nodata .condition {{
+    opacity: 0.7;
+  }}
+
+  .card.nodata .no-temps {{
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }}
+
   footer {{
     text-align: center;
     margin-top: 40px;
@@ -426,16 +539,18 @@ def build_html(forecast, run_time):
 
 
 def main():
-    try:
-        data = fetch_weather()
-    except Exception as e:
-        print(f"날씨 정보를 가져오지 못했습니다: {e}", file=sys.stderr)
-        sys.exit(1)
-
     run_time = datetime.now()
+    today = run_time.replace(hour=0, minute=0, second=0, microsecond=0)
     today_str = run_time.strftime("%Y-%m-%d")
 
-    forecast = build_forecast(data, today_str)
+    # 이번 주(일~토) 데이터를 예보 + 과거 날씨 API 로 모은다.
+    week_start, week_end, data_map = collect_weekly_data(today)
+
+    if not data_map:
+        print("날씨 정보를 가져오지 못했습니다.", file=sys.stderr)
+        sys.exit(1)
+
+    forecast = build_forecast(week_start, data_map, today_str)
 
     # 1) 텍스트 결과 만들기 + 화면 출력
     log_text = build_log_text(forecast, run_time)

@@ -183,6 +183,24 @@
     color: #ffffff;
   }
 
+  /* No-data / past cells (지난 날씨 · 예보 없음) */
+  .card.nodata {
+    background: repeating-linear-gradient(
+      135deg, #f1f5f9, #f1f5f9 10px, #eef2f7 10px, #eef2f7 20px);
+    color: var(--text-muted);
+    box-shadow: none;
+  }
+
+  .card.nodata .icon,
+  .card.nodata .condition {
+    opacity: 0.7;
+  }
+
+  .card.nodata .no-temps {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
   footer {
     text-align: center;
     margin-top: 40px;
@@ -197,26 +215,64 @@
       <h1>일주일 날씨 예보<span class="dot">.</span></h1>
       <div class="meta">
         <span>📍 위치 : <strong>알렌</strong> (위도 33.1, 경도 -96.67)</span>
-        <span>🕒 실행 시각 : <strong>2026-07-08 09:10</strong></span>
+        <span>🕒 실행 시각 : <strong>2026-07-08 09:23</strong></span>
       </div>
     </header>
 
     <div class="grid">
-      <div class="card">
-        <div class="date">07월 07일</div>
-        <div class="day">화요일</div>
-        <div class="icon">⛅</div>
-        <div class="condition">부분적으로 흐림</div>
+      <div class="card past">
+        <div class="date">07월 05일</div>
+        <div class="day">일요일</div>
+        <div class="icon">🌦️</div>
+        <div class="condition">이슬비</div>
         <div class="temps">
           <div class="t-item">
             <span class="t-label">최고</span>
-            <span class="high">35.7°C</span>
-            <span class="fahrenheit">96.3°F</span>
+            <span class="high">33.0°C</span>
+            <span class="fahrenheit">91.4°F</span>
           </div>
           <div class="t-item">
             <span class="t-label">최저</span>
-            <span class="low">24.4°C</span>
-            <span class="fahrenheit">75.9°F</span>
+            <span class="low">23.0°C</span>
+            <span class="fahrenheit">73.4°F</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card past">
+        <div class="date">07월 06일</div>
+        <div class="day">월요일</div>
+        <div class="icon">🌦️</div>
+        <div class="condition">약한 비</div>
+        <div class="temps">
+          <div class="t-item">
+            <span class="t-label">최고</span>
+            <span class="high">35.4°C</span>
+            <span class="fahrenheit">95.7°F</span>
+          </div>
+          <div class="t-item">
+            <span class="t-label">최저</span>
+            <span class="low">23.4°C</span>
+            <span class="fahrenheit">74.1°F</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card past">
+        <div class="date">07월 07일</div>
+        <div class="day">화요일</div>
+        <div class="icon">🌧️</div>
+        <div class="condition">짙은 이슬비</div>
+        <div class="temps">
+          <div class="t-item">
+            <span class="t-label">최고</span>
+            <span class="high">32.8°C</span>
+            <span class="fahrenheit">91.0°F</span>
+          </div>
+          <div class="t-item">
+            <span class="t-label">최저</span>
+            <span class="low">23.7°C</span>
+            <span class="fahrenheit">74.7°F</span>
           </div>
         </div>
       </div>
@@ -294,44 +350,6 @@
             <span class="t-label">최저</span>
             <span class="low">25.8°C</span>
             <span class="fahrenheit">78.4°F</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="date">07월 12일</div>
-        <div class="day">일요일</div>
-        <div class="icon">🌦️</div>
-        <div class="condition">이슬비</div>
-        <div class="temps">
-          <div class="t-item">
-            <span class="t-label">최고</span>
-            <span class="high">36.8°C</span>
-            <span class="fahrenheit">98.2°F</span>
-          </div>
-          <div class="t-item">
-            <span class="t-label">최저</span>
-            <span class="low">24.9°C</span>
-            <span class="fahrenheit">76.8°F</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="date">07월 13일</div>
-        <div class="day">월요일</div>
-        <div class="icon">☁️</div>
-        <div class="condition">흐림</div>
-        <div class="temps">
-          <div class="t-item">
-            <span class="t-label">최고</span>
-            <span class="high">38.0°C</span>
-            <span class="fahrenheit">100.4°F</span>
-          </div>
-          <div class="t-item">
-            <span class="t-label">최저</span>
-            <span class="low">25.5°C</span>
-            <span class="fahrenheit">77.9°F</span>
           </div>
         </div>
       </div>
