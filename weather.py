@@ -325,6 +325,26 @@ def build_html(forecast, run_time):
     --text-muted: #64748b;
     --bg: #f8fafc;
     --card-bg: #ffffff;
+    --card-border: #eef2f7;
+    --card-shadow: rgba(15, 23, 42, 0.06);
+    --card-shadow-hover: rgba(15, 23, 42, 0.12);
+    --toggle-bg: #ffffff;
+    --toggle-border: #e2e8f0;
+  }}
+
+  html[data-theme="dark"] {{
+    --accent: #60a5fa;
+    --accent-light: #3b82f6;
+    --accent-soft: rgba(96, 165, 250, 0.16);
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --bg: #0f172a;
+    --card-bg: #1e293b;
+    --card-border: #334155;
+    --card-shadow: rgba(0, 0, 0, 0.35);
+    --card-shadow-hover: rgba(0, 0, 0, 0.5);
+    --toggle-bg: #1e293b;
+    --toggle-border: #334155;
   }}
 
   body {{
@@ -335,6 +355,34 @@ def build_html(forecast, run_time):
     min-height: 100vh;
     padding: 48px 20px;
     -webkit-font-smoothing: antialiased;
+    transition: background 0.4s ease, color 0.4s ease;
+  }}
+
+  .theme-toggle {{
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    border: 1px solid var(--toggle-border);
+    background: var(--toggle-bg);
+    color: var(--text);
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px var(--card-shadow);
+    transition: background 0.4s ease, border-color 0.4s ease,
+                box-shadow 0.2s ease, transform 0.2s ease;
+    z-index: 100;
+  }}
+
+  .theme-toggle:hover {{
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 8px 20px var(--card-shadow-hover);
   }}
 
   .container {{
@@ -382,16 +430,17 @@ def build_html(forecast, run_time):
     background: var(--card-bg);
     border-radius: 18px;
     padding: 24px 22px;
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
-    border: 1px solid #eef2f7;
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    box-shadow: 0 4px 16px var(--card-shadow);
+    border: 1px solid var(--card-border);
+    transition: transform 0.18s ease, box-shadow 0.18s ease,
+                background 0.4s ease, border-color 0.4s ease, color 0.4s ease;
     position: relative;
     overflow: hidden;
   }}
 
   .card:hover {{
     transform: translateY(-4px);
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 12px 28px var(--card-shadow-hover);
   }}
 
   .card .date {{
@@ -492,7 +541,8 @@ def build_html(forecast, run_time):
   /* No-data / past cells (지난 날씨 · 예보 없음) */
   .card.nodata {{
     background: repeating-linear-gradient(
-      135deg, #f1f5f9, #f1f5f9 10px, #eef2f7 10px, #eef2f7 20px);
+      135deg, var(--card-bg), var(--card-bg) 10px,
+      var(--card-border) 10px, var(--card-border) 20px);
     color: var(--text-muted);
     box-shadow: none;
   }}
@@ -514,8 +564,21 @@ def build_html(forecast, run_time):
     color: var(--text-muted);
   }}
 </style>
+<script>
+  // 저장된 테마를 body 렌더 전에 적용해 깜빡임(FOUC)을 막는다.
+  (function () {{
+    try {{
+      var saved = localStorage.getItem("weather-theme");
+      if (saved === "dark") {{
+        document.documentElement.setAttribute("data-theme", "dark");
+      }}
+    }} catch (e) {{}}
+  }})();
+</script>
 </head>
 <body>
+  <button class="theme-toggle" id="themeToggle" type="button"
+          aria-label="다크모드 전환" title="다크모드 전환">🌙</button>
   <div class="container">
     <header>
       <h1>일주일 날씨 예보<span class="dot">.</span></h1>
@@ -533,6 +596,32 @@ def build_html(forecast, run_time):
       데이터 출처 : weather_log.txt · 알렌(Allen) 일주일 날씨 예보
     </footer>
   </div>
+  <script>
+    (function () {{
+      var root = document.documentElement;
+      var toggle = document.getElementById("themeToggle");
+
+      function syncIcon() {{
+        var isDark = root.getAttribute("data-theme") === "dark";
+        toggle.textContent = isDark ? "☀️" : "🌙";
+      }}
+
+      syncIcon();
+
+      toggle.addEventListener("click", function () {{
+        var isDark = root.getAttribute("data-theme") === "dark";
+        if (isDark) {{
+          root.removeAttribute("data-theme");
+        }} else {{
+          root.setAttribute("data-theme", "dark");
+        }}
+        try {{
+          localStorage.setItem("weather-theme", isDark ? "light" : "dark");
+        }} catch (e) {{}}
+        syncIcon();
+      }});
+    }})();
+  </script>
 </body>
 </html>
 '''
