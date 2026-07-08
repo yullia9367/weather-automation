@@ -143,6 +143,58 @@
     font-weight: 600;
   }
 
+  /* ── 지역 전환 탭 ─────────────────────────────────────────── */
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+
+  .tab-btn {
+    padding: 9px 22px;
+    border-radius: 999px;
+    border: 1px solid var(--toggle-border);
+    background: var(--card-bg);
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease,
+                border-color 0.2s ease, box-shadow 0.2s ease,
+                transform 0.15s ease;
+  }
+
+  .tab-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px var(--card-shadow);
+    color: var(--text);
+  }
+
+  .tab-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+  }
+
+  /* 패널: 활성 패널만 보이게 */
+  .panel {
+    display: none;
+  }
+
+  .panel.active {
+    display: block;
+    animation: panel-fade 0.35s ease;
+  }
+
+  @keyframes panel-fade {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -532,12 +584,21 @@
     <header>
       <h1>일주일 날씨 예보<span class="dot">.</span></h1>
       <div class="meta">
-        <span>📍 위치 : <strong>알렌</strong> (위도 33.1, 경도 -96.67)</span>
-        <span>🕒 실행 시각 : <strong>2026-07-08 09:54</strong></span>
+        <span>📍 위치 : <strong id="metaLoc"></strong> <span id="metaCoord"></span></span>
+        <span>🕒 실행 시각 : <strong>2026-07-08 10:01</strong></span>
       </div>
     </header>
 
-    <div class="grid">
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" type="button" role="tab"
+              data-target="panel-0" aria-selected="true">알렌</button>
+      <button class="tab-btn" type="button" role="tab"
+              data-target="panel-1" aria-selected="false">서울</button>
+    </div>
+
+    <div class="panel active" id="panel-0" role="tabpanel"
+         data-name="알렌" data-lat="33.1" data-lon="-96.67">
+      <div class="grid">
       <div class="card past">
         <div class="date">07월 05일</div>
         <div class="day">일요일</div>
@@ -671,10 +732,150 @@
           </div>
         </div>
       </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-1" role="tabpanel"
+         data-name="서울" data-lat="37.57" data-lon="126.98">
+      <div class="grid">
+      <div class="card past">
+        <div class="date">07월 05일</div>
+        <div class="day">일요일</div>
+        <div class="icon icon-rain">🌧️</div>
+        <div class="condition">비</div>
+        <div class="temps">
+          <div class="t-item">
+            <span class="t-label">최고</span>
+            <span class="high temp-primary" data-c="30.5" data-f="86.9"></span>
+            <span class="fahrenheit temp-secondary" data-c="30.5" data-f="86.9"></span>
+          </div>
+          <div class="t-item">
+            <span class="t-label">최저</span>
+            <span class="low temp-primary" data-c="22.6" data-f="72.7"></span>
+            <span class="fahrenheit temp-secondary" data-c="22.6" data-f="72.7"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card past">
+        <div class="date">07월 06일</div>
+        <div class="day">월요일</div>
+        <div class="icon icon-rain">🌧️</div>
+        <div class="condition">강한 비</div>
+        <div class="temps">
+          <div class="t-item">
+            <span class="t-label">최고</span>
+            <span class="high temp-primary" data-c="29.0" data-f="84.2"></span>
+            <span class="fahrenheit temp-secondary" data-c="29.0" data-f="84.2"></span>
+          </div>
+          <div class="t-item">
+            <span class="t-label">최저</span>
+            <span class="low temp-primary" data-c="22.7" data-f="72.9"></span>
+            <span class="fahrenheit temp-secondary" data-c="22.7" data-f="72.9"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card past">
+        <div class="date">07월 07일</div>
+        <div class="day">화요일</div>
+        <div class="icon icon-rain">🌦️</div>
+        <div class="condition">약한 비</div>
+        <div class="temps">
+          <div class="t-item">
+            <span class="t-label">최고</span>
+            <span class="high temp-primary" data-c="29.6" data-f="85.3"></span>
+            <span class="fahrenheit temp-secondary" data-c="29.6" data-f="85.3"></span>
+          </div>
+          <div class="t-item">
+            <span class="t-label">최저</span>
+            <span class="low temp-primary" data-c="22.9" data-f="73.2"></span>
+            <span class="fahrenheit temp-secondary" data-c="22.9" data-f="73.2"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card latest">
+        <span class="badge">TODAY</span>
+        <div class="date">07월 08일</div>
+        <div class="day">수요일</div>
+        <div class="icon icon-rain">🌧️</div>
+        <div class="condition">강한 비</div>
+        <div class="temps">
+          <div class="t-item">
+            <span class="t-label">최고</span>
+            <span class="high temp-primary" data-c="26.3" data-f="79.3"></span>
+            <span class="fahrenheit temp-secondary" data-c="26.3" data-f="79.3"></span>
+          </div>
+          <div class="t-item">
+            <span class="t-label">최저</span>
+            <span class="low temp-primary" data-c="23.2" data-f="73.8"></span>
+            <span class="fahrenheit temp-secondary" data-c="23.2" data-f="73.8"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="date">07월 09일</div>
+        <div class="day">목요일</div>
+        <div class="icon icon-rain">🌦️</div>
+        <div class="condition">약한 비</div>
+        <div class="temps">
+          <div class="t-item">
+            <span class="t-label">최고</span>
+            <span class="high temp-primary" data-c="26.7" data-f="80.1"></span>
+            <span class="fahrenheit temp-secondary" data-c="26.7" data-f="80.1"></span>
+          </div>
+          <div class="t-item">
+            <span class="t-label">최저</span>
+            <span class="low temp-primary" data-c="23.3" data-f="73.9"></span>
+            <span class="fahrenheit temp-secondary" data-c="23.3" data-f="73.9"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="date">07월 10일</div>
+        <div class="day">금요일</div>
+        <div class="icon icon-rain">🌧️</div>
+        <div class="condition">비</div>
+        <div class="temps">
+          <div class="t-item">
+            <span class="t-label">최고</span>
+            <span class="high temp-primary" data-c="28.7" data-f="83.7"></span>
+            <span class="fahrenheit temp-secondary" data-c="28.7" data-f="83.7"></span>
+          </div>
+          <div class="t-item">
+            <span class="t-label">최저</span>
+            <span class="low temp-primary" data-c="22.6" data-f="72.7"></span>
+            <span class="fahrenheit temp-secondary" data-c="22.6" data-f="72.7"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="date">07월 11일</div>
+        <div class="day">토요일</div>
+        <div class="icon icon-rain">🌦️</div>
+        <div class="condition">가벼운 이슬비</div>
+        <div class="temps">
+          <div class="t-item">
+            <span class="t-label">최고</span>
+            <span class="high temp-primary" data-c="31.0" data-f="87.8"></span>
+            <span class="fahrenheit temp-secondary" data-c="31.0" data-f="87.8"></span>
+          </div>
+          <div class="t-item">
+            <span class="t-label">최저</span>
+            <span class="low temp-primary" data-c="24.0" data-f="75.2"></span>
+            <span class="fahrenheit temp-secondary" data-c="24.0" data-f="75.2"></span>
+          </div>
+        </div>
+      </div>
+      </div>
     </div>
 
     <footer>
-      데이터 출처 : weather_log.txt · 알렌(Allen) 일주일 날씨 예보
+      데이터 출처 : weather_log.txt · 알렌 · 서울 일주일 날씨 예보
     </footer>
   </div>
   <script>
@@ -746,6 +947,47 @@
         } catch (e) {}
         render();
       });
+    })();
+
+    // ── 지역 전환 탭 ──────────────────────────────────────────
+    (function () {
+      var buttons = document.querySelectorAll(".tab-btn");
+      var panels = document.querySelectorAll(".panel");
+      var metaLoc = document.getElementById("metaLoc");
+      var metaCoord = document.getElementById("metaCoord");
+
+      function activate(targetId) {
+        var i;
+        for (i = 0; i < buttons.length; i++) {
+          var isActive = buttons[i].getAttribute("data-target") === targetId;
+          buttons[i].classList.toggle("active", isActive);
+          buttons[i].setAttribute("aria-selected", isActive ? "true" : "false");
+        }
+        for (i = 0; i < panels.length; i++) {
+          var panel = panels[i];
+          var on = panel.id === targetId;
+          panel.classList.toggle("active", on);
+          if (on && metaLoc) {
+            metaLoc.textContent = panel.getAttribute("data-name");
+            if (metaCoord) {
+              metaCoord.textContent =
+                "(위도 " + panel.getAttribute("data-lat") +
+                ", 경도 " + panel.getAttribute("data-lon") + ")";
+            }
+          }
+        }
+      }
+
+      for (var j = 0; j < buttons.length; j++) {
+        buttons[j].addEventListener("click", function () {
+          activate(this.getAttribute("data-target"));
+        });
+      }
+
+      // 첫 번째 탭을 초기 활성 상태로 (meta 정보도 채움)
+      if (buttons.length) {
+        activate(buttons[0].getAttribute("data-target"));
+      }
     })();
   </script>
 </body>

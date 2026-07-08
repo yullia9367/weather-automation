@@ -19,9 +19,11 @@ import urllib.parse
 import json
 from datetime import datetime, timedelta
 
-LATITUDE = 33.10
-LONGITUDE = -96.67
-LOCATION_NAME = "알렌"
+# 날씨를 가져올 지역 목록 (탭 순서와 동일)
+LOCATIONS = [
+    {"name": "알렌", "latitude": 33.10, "longitude": -96.67},
+    {"name": "서울", "latitude": 37.57, "longitude": 126.98},
+]
 
 # 스크립트가 있는 디렉터리(= 결과 파일을 만들 위치)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -116,11 +118,11 @@ def week_bounds(today):
     return week_start, week_end
 
 
-def fetch_range(base_url, start_date, end_date):
+def fetch_range(base_url, latitude, longitude, start_date, end_date):
     """지정한 API(base_url)에서 start_date~end_date 구간의 일별 데이터를 받아온다."""
     params = {
-        "latitude": LATITUDE,
-        "longitude": LONGITUDE,
+        "latitude": latitude,
+        "longitude": longitude,
         "daily": "temperature_2m_max,temperature_2m_min,weather_code",
         "timezone": "auto",
         "start_date": start_date.strftime("%Y-%m-%d"),
@@ -145,7 +147,7 @@ def merge_daily(data_map, data):
         data_map[date] = {"t_max": tx, "t_min": tn, "code": code}
 
 
-def collect_weekly_data(today):
+def collect_weekly_data(today, latitude, longitude):
     """이번 주(일~토) 7일 치 데이터를 예보 + 과거 날씨 API로 채워 모은다.
 
     - 오늘 ~ 이번 주 토요일 : Open-Meteo 예보 API
@@ -157,7 +159,7 @@ def collect_weekly_data(today):
 
     # 1) 오늘부터 이번 주 토요일까지는 예보 API 로 채운다.
     try:
-        forecast_data = fetch_range(FORECAST_URL, today, week_end)
+        forecast_data = fetch_range(FORECAST_URL, latitude, longitude, today, week_end)
         merge_daily(data_map, forecast_data)
     except Exception as e:
         print(f"예보 데이터를 가져오지 못했습니다: {e}", file=sys.stderr)
@@ -166,7 +168,7 @@ def collect_weekly_data(today):
     yesterday = today - timedelta(days=1)
     if week_start <= yesterday:
         try:
-            archive_data = fetch_range(ARCHIVE_URL, week_start, yesterday)
+            archive_data = fetch_range(ARCHIVE_URL, latitude, longitude, week_start, yesterday)
             merge_daily(data_map, archive_data)
         except Exception as e:
             print(f"과거 날씨 데이터를 가져오지 못했습니다: {e}", file=sys.stderr)
@@ -252,9 +254,9 @@ def build_forecast(week_start, data_map, today_str):
     return forecast
 
 
-def build_log_text(forecast, run_time):
+def build_log_text(forecast, run_time, location):
     """weather_log.txt 에 이어 붙일 텍스트 블록을 만든다."""
-    loc_str = f"{LOCATION_NAME} (위도 {LATITUDE}, 경도 {LONGITUDE})"
+    loc_str = f"{location['name']} (위도 {location['latitude']}, 경도 {location['longitude']})"
     line = "=" * 56
     lines = [
         line,
@@ -282,8 +284,8 @@ def build_log_text(forecast, run_time):
     return "\n".join(lines)
 
 
-def build_html(forecast, run_time):
-    """최신 예보 데이터로 weather.html 전체 문서를 생성한다."""
+def build_cards_html(forecast):
+    """한 지역의 forecast 리스트를 카드 HTML 문자열로 만든다."""
     cards = []
     for day in forecast:
         classes = ["card"]
@@ -321,8 +323,37 @@ def build_html(forecast, run_time):
         {temps_html}
       </div>'''
         )
-    cards_html = "\n\n".join(cards)
+    return "\n\n".join(cards)
+
+
+def build_html(location_data, run_time):
+    """여러 지역의 예보 데이터로 weather.html 전체 문서를 생성한다.
+
+    location_data: [(location dict, forecast list), ...] 순서대로 탭 구성.
+    """
     run_time_str = run_time.strftime("%Y-%m-%d %H:%M")
+
+    # 탭 버튼과 각 지역 패널(그리드)을 만든다.
+    tab_buttons = []
+    panels = []
+    for idx, (location, forecast) in enumerate(location_data):
+        active = " active" if idx == 0 else ""
+        name = html.escape(location["name"])
+        tab_buttons.append(
+            f'''      <button class="tab-btn{active}" type="button" role="tab"
+              data-target="panel-{idx}" aria-selected="{"true" if idx == 0 else "false"}">{name}</button>'''
+        )
+        cards_html = build_cards_html(forecast)
+        panels.append(
+            f'''    <div class="panel{active}" id="panel-{idx}" role="tabpanel"
+         data-name="{name}" data-lat="{location["latitude"]}" data-lon="{location["longitude"]}">
+      <div class="grid">
+{cards_html}
+      </div>
+    </div>'''
+        )
+    tabs_html = "\n".join(tab_buttons)
+    panels_html = "\n\n".join(panels)
 
     return f'''<!DOCTYPE html>
 <html lang="ko">
@@ -467,6 +498,58 @@ def build_html(forecast, run_time):
   .meta span strong {{
     color: var(--text);
     font-weight: 600;
+  }}
+
+  /* ── 지역 전환 탭 ─────────────────────────────────────────── */
+  .tabs {{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 28px;
+  }}
+
+  .tab-btn {{
+    padding: 9px 22px;
+    border-radius: 999px;
+    border: 1px solid var(--toggle-border);
+    background: var(--card-bg);
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease,
+                border-color 0.2s ease, box-shadow 0.2s ease,
+                transform 0.15s ease;
+  }}
+
+  .tab-btn:hover {{
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px var(--card-shadow);
+    color: var(--text);
+  }}
+
+  .tab-btn.active {{
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+  }}
+
+  /* 패널: 활성 패널만 보이게 */
+  .panel {{
+    display: none;
+  }}
+
+  .panel.active {{
+    display: block;
+    animation: panel-fade 0.35s ease;
+  }}
+
+  @keyframes panel-fade {{
+    from {{ opacity: 0; transform: translateY(6px); }}
+    to   {{ opacity: 1; transform: translateY(0); }}
   }}
 
   .grid {{
@@ -858,17 +941,19 @@ def build_html(forecast, run_time):
     <header>
       <h1>일주일 날씨 예보<span class="dot">.</span></h1>
       <div class="meta">
-        <span>📍 위치 : <strong>{html.escape(LOCATION_NAME)}</strong> (위도 {LATITUDE}, 경도 {LONGITUDE})</span>
+        <span>📍 위치 : <strong id="metaLoc"></strong> <span id="metaCoord"></span></span>
         <span>🕒 실행 시각 : <strong>{run_time_str}</strong></span>
       </div>
     </header>
 
-    <div class="grid">
-{cards_html}
+    <div class="tabs" role="tablist">
+{tabs_html}
     </div>
 
+{panels_html}
+
     <footer>
-      데이터 출처 : weather_log.txt · 알렌(Allen) 일주일 날씨 예보
+      데이터 출처 : weather_log.txt · 알렌 · 서울 일주일 날씨 예보
     </footer>
   </div>
   <script>
@@ -941,6 +1026,47 @@ def build_html(forecast, run_time):
         render();
       }});
     }})();
+
+    // ── 지역 전환 탭 ──────────────────────────────────────────
+    (function () {{
+      var buttons = document.querySelectorAll(".tab-btn");
+      var panels = document.querySelectorAll(".panel");
+      var metaLoc = document.getElementById("metaLoc");
+      var metaCoord = document.getElementById("metaCoord");
+
+      function activate(targetId) {{
+        var i;
+        for (i = 0; i < buttons.length; i++) {{
+          var isActive = buttons[i].getAttribute("data-target") === targetId;
+          buttons[i].classList.toggle("active", isActive);
+          buttons[i].setAttribute("aria-selected", isActive ? "true" : "false");
+        }}
+        for (i = 0; i < panels.length; i++) {{
+          var panel = panels[i];
+          var on = panel.id === targetId;
+          panel.classList.toggle("active", on);
+          if (on && metaLoc) {{
+            metaLoc.textContent = panel.getAttribute("data-name");
+            if (metaCoord) {{
+              metaCoord.textContent =
+                "(위도 " + panel.getAttribute("data-lat") +
+                ", 경도 " + panel.getAttribute("data-lon") + ")";
+            }}
+          }}
+        }}
+      }}
+
+      for (var j = 0; j < buttons.length; j++) {{
+        buttons[j].addEventListener("click", function () {{
+          activate(this.getAttribute("data-target"));
+        }});
+      }}
+
+      // 첫 번째 탭을 초기 활성 상태로 (meta 정보도 채움)
+      if (buttons.length) {{
+        activate(buttons[0].getAttribute("data-target"));
+      }}
+    }})();
   </script>
 </body>
 </html>
@@ -952,31 +1078,47 @@ def main():
     today = run_time.replace(hour=0, minute=0, second=0, microsecond=0)
     today_str = run_time.strftime("%Y-%m-%d")
 
-    # 이번 주(일~토) 데이터를 예보 + 과거 날씨 API 로 모은다.
-    week_start, week_end, data_map = collect_weekly_data(today)
+    location_data = []   # [(location, forecast), ...] — HTML 탭 구성용
+    log_blocks = []      # 지역별 로그 텍스트 블록
 
-    if not data_map:
-        print("날씨 정보를 가져오지 못했습니다.", file=sys.stderr)
+    # 지역별로 이번 주(일~토) 데이터를 예보 + 과거 날씨 API 로 모은다.
+    for location in LOCATIONS:
+        week_start, week_end, data_map = collect_weekly_data(
+            today, location["latitude"], location["longitude"]
+        )
+
+        if not data_map:
+            print(
+                f"[{location['name']}] 날씨 정보를 가져오지 못했습니다.",
+                file=sys.stderr,
+            )
+            continue
+
+        forecast = build_forecast(week_start, data_map, today_str)
+        location_data.append((location, forecast))
+
+        # 텍스트 결과 만들기 + 화면 출력 (지역명으로 구분)
+        log_text = build_log_text(forecast, run_time, location)
+        print(log_text)
+        print()
+        log_blocks.append(log_text)
+
+    if not location_data:
+        print("모든 지역의 날씨 정보를 가져오지 못했습니다.", file=sys.stderr)
         sys.exit(1)
 
-    forecast = build_forecast(week_start, data_map, today_str)
-
-    # 1) 텍스트 결과 만들기 + 화면 출력
-    log_text = build_log_text(forecast, run_time)
-    print(log_text)
-
-    # 2) 로그 파일에 계속 이어서 기록
+    # 2) 로그 파일에 계속 이어서 기록 (지역 블록을 이어붙임)
     try:
         os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
         with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(log_text)
+            f.write("\n\n".join(log_blocks))
             f.write("\n\n")
     except Exception as e:
         print(f"로그 파일 기록에 실패했습니다: {e}", file=sys.stderr)
 
-    # 3) 방금 받은 최신 데이터로 weather.html 다시 생성
+    # 3) 방금 받은 최신 데이터로 weather.html 다시 생성 (지역별 탭)
     try:
-        html_text = build_html(forecast, run_time)
+        html_text = build_html(location_data, run_time)
         with open(HTML_FILE, "w", encoding="utf-8") as f:
             f.write(html_text)
     except Exception as e:
