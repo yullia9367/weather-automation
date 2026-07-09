@@ -429,12 +429,252 @@ def build_air_quality_html(air):
       </div>'''
 
 
+def build_chart_data(location_data):
+    """지역별 주간 기온 라인 그래프에 쓸 데이터를 dict 로 만든다.
+
+    panel-{idx} 를 키로, 각 지역의 요일 라벨·최고/최저(℃·℉)·오늘 인덱스를
+    담는다. 이 dict 를 JSON 으로 HTML 에 심어 Chart.js 가 읽어 쓴다.
+    데이터가 없는 날(has_data=False)은 None 으로 두어 선이 끊기게 한다.
+    """
+    result = {}
+    for idx, (location, forecast, air) in enumerate(location_data):
+        labels = []
+        highs_c, highs_f, lows_c, lows_f = [], [], [], []
+        today_index = -1
+        for i, day in enumerate(forecast):
+            # 라벨은 [요일, MM/DD] 두 줄로 (Chart.js 는 배열을 여러 줄로 렌더)
+            mmdd = day["date"][5:].replace("-", "/")
+            labels.append([day["weekday_short"], mmdd])
+            if day["has_data"]:
+                highs_c.append(round(day["t_max"], 1))
+                highs_f.append(round(c_to_f(day["t_max"]), 1))
+                lows_c.append(round(day["t_min"], 1))
+                lows_f.append(round(c_to_f(day["t_min"]), 1))
+            else:
+                highs_c.append(None)
+                highs_f.append(None)
+                lows_c.append(None)
+                lows_f.append(None)
+            if day["is_today"]:
+                today_index = i
+        result[f"panel-{idx}"] = {
+            "name": location["name"],
+            "labels": labels,
+            "highsC": highs_c,
+            "highsF": highs_f,
+            "lowsC": lows_c,
+            "lowsF": lows_f,
+            "todayIndex": today_index,
+        }
+    return result
+
+
+# 주간 기온 라인 그래프(Chart.js) 모듈.
+# build_html 의 f-string 안에 {chart_js} 로 그대로 삽입되므로, 여기서는
+# 일반 문자열이라 중괄호를 이중으로 쓸 필요가 없다. 탭 전환/테마/단위 변경 시
+# 다른 IIFE 들이 __chartApi 를 호출하므로 이 모듈이 스크립트 맨 위에 온다.
+CHART_JS = r"""
+    // ── 주간 기온 라인 그래프 (Chart.js) ─────────────────────
+    var __chartApi = (function () {
+      var dataEl = document.getElementById("chart-data");
+      var canvas = document.getElementById("tempChart");
+      if (!dataEl || !canvas || typeof Chart === "undefined") {
+        return null;
+      }
+
+      var CHART_DATA = {};
+      try {
+        CHART_DATA = JSON.parse(dataEl.textContent);
+      } catch (e) {
+        return null;
+      }
+
+      var HIGH_COLOR = "#ef4444";  // 최고기온 = 빨강
+      var LOW_COLOR = "#3b82f6";   // 최저기온 = 파랑
+      var currentPanel = null;
+
+      function currentUnit() {
+        try {
+          return localStorage.getItem("weather-unit") === "f" ? "f" : "c";
+        } catch (e) {
+          return "c";
+        }
+      }
+
+      function isDark() {
+        return document.documentElement.getAttribute("data-theme") === "dark";
+      }
+
+      // 다크/라이트에 맞는 축·글자·격자·툴팁 색을 돌려준다.
+      function themeColors() {
+        if (isDark()) {
+          return {
+            tick: "#94a3b8",
+            grid: "rgba(255, 255, 255, 0.10)",
+            legend: "#e2e8f0",
+            tooltipBg: "rgba(15, 23, 42, 0.95)",
+            tooltipText: "#e2e8f0",
+            pointBorder: "#1e293b"
+          };
+        }
+        return {
+          tick: "#64748b",
+          grid: "rgba(15, 23, 42, 0.08)",
+          legend: "#1e293b",
+          tooltipBg: "rgba(255, 255, 255, 0.96)",
+          tooltipText: "#1e293b",
+          pointBorder: "#ffffff"
+        };
+      }
+
+      // 오늘 지점만 점을 크게 강조 (데이터 없는 날은 기본값 유지)
+      function pointRadii(arr, todayIndex, base, todaySize) {
+        var out = [];
+        for (var i = 0; i < arr.length; i++) {
+          out.push(i === todayIndex && arr[i] !== null ? todaySize : base);
+        }
+        return out;
+      }
+
+      var chart = new Chart(canvas.getContext("2d"), {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: "최고기온",
+              data: [],
+              borderColor: HIGH_COLOR,
+              backgroundColor: HIGH_COLOR,
+              borderWidth: 2.5,
+              tension: 0.35,
+              spanGaps: true,
+              pointBorderWidth: 2
+            },
+            {
+              label: "최저기온",
+              data: [],
+              borderColor: LOW_COLOR,
+              backgroundColor: LOW_COLOR,
+              borderWidth: 2.5,
+              tension: 0.35,
+              spanGaps: true,
+              pointBorderWidth: 2
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: {
+              labels: { color: "#1e293b", usePointStyle: true, padding: 16 }
+            },
+            tooltip: {
+              backgroundColor: "rgba(255, 255, 255, 0.96)",
+              titleColor: "#1e293b",
+              bodyColor: "#1e293b",
+              borderColor: "rgba(15, 23, 42, 0.1)",
+              borderWidth: 1,
+              padding: 10,
+              callbacks: {
+                label: function (ctx) {
+                  var v = ctx.parsed.y;
+                  var u = currentUnit() === "f" ? "°F" : "°C";
+                  if (v === null || v === undefined) {
+                    return ctx.dataset.label + ": -";
+                  }
+                  return ctx.dataset.label + ": " + v + u;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: "rgba(15, 23, 42, 0.08)" },
+              ticks: { color: "#64748b", font: { size: 12 } }
+            },
+            y: {
+              grid: { color: "rgba(15, 23, 42, 0.08)" },
+              ticks: {
+                color: "#64748b",
+                callback: function (value) {
+                  return value + (currentUnit() === "f" ? "°" : "°");
+                }
+              },
+              title: { display: true, text: "기온 (°C)", color: "#64748b" }
+            }
+          }
+        }
+      });
+
+      // 지정 패널(지역) 데이터 + 현재 단위/테마로 그래프를 다시 그린다.
+      function render(panelId) {
+        if (panelId) {
+          currentPanel = panelId;
+        }
+        var d = CHART_DATA[currentPanel];
+        if (!d) {
+          return;
+        }
+        var unit = currentUnit();
+        var highs = unit === "f" ? d.highsF : d.highsC;
+        var lows = unit === "f" ? d.lowsF : d.lowsC;
+        var c = themeColors();
+
+        chart.data.labels = d.labels;
+        chart.data.datasets[0].data = highs;
+        chart.data.datasets[1].data = lows;
+
+        chart.data.datasets[0].pointRadius = pointRadii(highs, d.todayIndex, 3.5, 8);
+        chart.data.datasets[0].pointHoverRadius = pointRadii(highs, d.todayIndex, 6, 10);
+        chart.data.datasets[1].pointRadius = pointRadii(lows, d.todayIndex, 3.5, 8);
+        chart.data.datasets[1].pointHoverRadius = pointRadii(lows, d.todayIndex, 6, 10);
+
+        chart.data.datasets[0].pointBackgroundColor = HIGH_COLOR;
+        chart.data.datasets[1].pointBackgroundColor = LOW_COLOR;
+        chart.data.datasets[0].pointBorderColor = c.pointBorder;
+        chart.data.datasets[1].pointBorderColor = c.pointBorder;
+
+        var sc = chart.options.scales;
+        sc.x.ticks.color = c.tick;
+        sc.x.grid.color = c.grid;
+        sc.y.ticks.color = c.tick;
+        sc.y.grid.color = c.grid;
+        sc.y.title.text = "기온 (" + (unit === "f" ? "°F" : "°C") + ")";
+        sc.y.title.color = c.tick;
+
+        var pl = chart.options.plugins;
+        pl.legend.labels.color = c.legend;
+        pl.tooltip.backgroundColor = c.tooltipBg;
+        pl.tooltip.titleColor = c.tooltipText;
+        pl.tooltip.bodyColor = c.tooltipText;
+        pl.tooltip.borderColor = c.grid;
+
+        chart.update();
+      }
+
+      return {
+        // 탭 전환 시: 해당 지역 데이터로 그래프 교체
+        update: function (panelId) { render(panelId); },
+        // 테마/단위 변경 시: 현재 지역 그대로 색·값만 갱신
+        refresh: function () { render(null); }
+      };
+    })();
+"""
+
+
 def build_html(location_data, run_time):
     """여러 지역의 예보 데이터로 weather.html 전체 문서를 생성한다.
 
     location_data: [(location dict, forecast list), ...] 순서대로 탭 구성.
     """
     run_time_str = run_time.strftime("%Y-%m-%d %H:%M")
+
+    # 지역별 그래프 데이터를 JSON 으로 만들어 HTML 에 심는다.
+    chart_json = json.dumps(build_chart_data(location_data), ensure_ascii=False)
+    chart_js = CHART_JS
 
     # 탭 버튼과 각 지역 패널(그리드)을 만든다.
     tab_buttons = []
@@ -466,6 +706,7 @@ def build_html(location_data, run_time):
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>일주일 날씨 예보</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   * {{
     margin: 0;
@@ -1001,6 +1242,63 @@ def build_html(location_data, run_time):
     color: var(--text-muted);
   }}
 
+  /* ── 주간 기온 라인 그래프 카드 ─────────────────────────────
+     카드 목록 아래쪽에 배치. 배경/테두리는 카드와 동일한 테마
+     변수를 써서 다크모드에서도 자연스럽게 전환된다. Chart.js 캔버스
+     자체의 축·글자·격자 색은 JS 에서 테마에 맞춰 다시 칠한다. */
+  .chart-section {{
+    margin-top: 36px;
+  }}
+
+  .chart-card {{
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 24px 22px;
+    box-shadow: 0 4px 16px var(--card-shadow);
+    transition: background 0.4s ease, border-color 0.4s ease,
+                box-shadow 0.2s ease;
+  }}
+
+  .chart-card h2 {{
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+  }}
+
+  .chart-card .chart-sub {{
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }}
+
+  .chart-wrap {{
+    position: relative;
+    width: 100%;
+    height: 340px;
+  }}
+
+  @media (max-width: 768px) {{
+    .chart-section {{
+      margin-top: 24px;
+    }}
+    .chart-card {{
+      padding: 18px 16px;
+      border-radius: 14px;
+    }}
+    .chart-wrap {{
+      height: 260px;
+    }}
+  }}
+
+  footer {{
+    text-align: center;
+    margin-top: 40px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }}
+
   /* ── 모바일 반응형 (폭 768px 이하) ─────────────────────────
      카드가 좁게 찌그러지지 않도록 1열로 세로 정렬하고, 폰트와
      여백을 작은 화면에 맞게 줄인다. 다크모드 버튼은 조금 작게
@@ -1125,11 +1423,23 @@ def build_html(location_data, run_time):
 
 {panels_html}
 
+    <section class="chart-section">
+      <div class="chart-card">
+        <h2>이번 주 기온 변화</h2>
+        <div class="chart-sub" id="chartSub">최고기온(빨강) · 최저기온(파랑) — 오늘은 크게 표시</div>
+        <div class="chart-wrap">
+          <canvas id="tempChart"></canvas>
+        </div>
+      </div>
+    </section>
+
     <footer>
       데이터 출처 : weather_log.txt · 알렌 · 서울 일주일 날씨 예보
     </footer>
   </div>
+  <script type="application/json" id="chart-data">{chart_json}</script>
   <script>
+{chart_js}
     (function () {{
       var root = document.documentElement;
       var toggle = document.getElementById("themeToggle");
@@ -1152,6 +1462,7 @@ def build_html(location_data, run_time):
           localStorage.setItem("weather-theme", isDark ? "light" : "dark");
         }} catch (e) {{}}
         syncIcon();
+        if (__chartApi) {{ __chartApi.refresh(); }}
       }});
     }})();
 
@@ -1197,6 +1508,7 @@ def build_html(location_data, run_time):
           localStorage.setItem("weather-unit", unit);
         }} catch (e) {{}}
         render();
+        if (__chartApi) {{ __chartApi.refresh(); }}
       }});
     }})();
 

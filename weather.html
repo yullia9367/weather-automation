@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>일주일 날씨 예보</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   * {
     margin: 0;
@@ -539,6 +540,63 @@
     color: var(--text-muted);
   }
 
+  /* ── 주간 기온 라인 그래프 카드 ─────────────────────────────
+     카드 목록 아래쪽에 배치. 배경/테두리는 카드와 동일한 테마
+     변수를 써서 다크모드에서도 자연스럽게 전환된다. Chart.js 캔버스
+     자체의 축·글자·격자 색은 JS 에서 테마에 맞춰 다시 칠한다. */
+  .chart-section {
+    margin-top: 36px;
+  }
+
+  .chart-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 24px 22px;
+    box-shadow: 0 4px 16px var(--card-shadow);
+    transition: background 0.4s ease, border-color 0.4s ease,
+                box-shadow 0.2s ease;
+  }
+
+  .chart-card h2 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+  }
+
+  .chart-card .chart-sub {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+    height: 340px;
+  }
+
+  @media (max-width: 768px) {
+    .chart-section {
+      margin-top: 24px;
+    }
+    .chart-card {
+      padding: 18px 16px;
+      border-radius: 14px;
+    }
+    .chart-wrap {
+      height: 260px;
+    }
+  }
+
+  footer {
+    text-align: center;
+    margin-top: 40px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
   /* ── 모바일 반응형 (폭 768px 이하) ─────────────────────────
      카드가 좁게 찌그러지지 않도록 1열로 세로 정렬하고, 폰트와
      여백을 작은 화면에 맞게 줄인다. 다크모드 버튼은 조금 작게
@@ -653,7 +711,7 @@
       <h1>일주일 날씨 예보<span class="dot">.</span></h1>
       <div class="meta">
         <span>📍 위치 : <strong id="metaLoc"></strong> <span id="metaCoord"></span></span>
-        <span>🕒 실행 시각 : <strong>2026-07-08 10:06</strong></span>
+        <span>🕒 실행 시각 : <strong>2026-07-09 10:52</strong></span>
       </div>
     </header>
 
@@ -667,7 +725,7 @@
     <div class="panel active" id="panel-0" role="tabpanel"
          data-name="알렌" data-lat="33.1" data-lon="-96.67">
       <div class="air-quality">
-        <span class="aq-badge aq-good">PM2.5: 좋음(6㎍/m³)</span>
+        <span class="aq-badge aq-good">PM2.5: 좋음(11㎍/m³)</span>
         <span class="aq-badge aq-good">UV: 좋음(0)</span>
       </div>
       <div class="grid">
@@ -728,41 +786,41 @@
         </div>
       </div>
 
-      <div class="card latest">
-        <span class="badge">TODAY</span>
+      <div class="card past">
         <div class="date">07월 08일</div>
         <div class="day">수요일</div>
-        <div class="icon icon-cloud">☁️</div>
-        <div class="condition">흐림</div>
+        <div class="icon icon-rain">🌦️</div>
+        <div class="condition">이슬비</div>
         <div class="temps">
           <div class="t-item">
             <span class="t-label">최고</span>
-            <span class="high temp-primary" data-c="37.5" data-f="99.5"></span>
-            <span class="fahrenheit temp-secondary" data-c="37.5" data-f="99.5"></span>
+            <span class="high temp-primary" data-c="35.6" data-f="96.1"></span>
+            <span class="fahrenheit temp-secondary" data-c="35.6" data-f="96.1"></span>
           </div>
           <div class="t-item">
             <span class="t-label">최저</span>
-            <span class="low temp-primary" data-c="25.4" data-f="77.7"></span>
-            <span class="fahrenheit temp-secondary" data-c="25.4" data-f="77.7"></span>
+            <span class="low temp-primary" data-c="24.6" data-f="76.3"></span>
+            <span class="fahrenheit temp-secondary" data-c="24.6" data-f="76.3"></span>
           </div>
         </div>
       </div>
 
-      <div class="card">
+      <div class="card latest">
+        <span class="badge">TODAY</span>
         <div class="date">07월 09일</div>
         <div class="day">목요일</div>
-        <div class="icon icon-cloud">☁️</div>
-        <div class="condition">흐림</div>
+        <div class="icon icon-sun">🌤️</div>
+        <div class="condition">대체로 맑음</div>
         <div class="temps">
           <div class="t-item">
             <span class="t-label">최고</span>
-            <span class="high temp-primary" data-c="38.9" data-f="102.0"></span>
-            <span class="fahrenheit temp-secondary" data-c="38.9" data-f="102.0"></span>
+            <span class="high temp-primary" data-c="38.4" data-f="101.1"></span>
+            <span class="fahrenheit temp-secondary" data-c="38.4" data-f="101.1"></span>
           </div>
           <div class="t-item">
             <span class="t-label">최저</span>
-            <span class="low temp-primary" data-c="26.5" data-f="79.7"></span>
-            <span class="fahrenheit temp-secondary" data-c="26.5" data-f="79.7"></span>
+            <span class="low temp-primary" data-c="27.2" data-f="81.0"></span>
+            <span class="fahrenheit temp-secondary" data-c="27.2" data-f="81.0"></span>
           </div>
         </div>
       </div>
@@ -775,13 +833,13 @@
         <div class="temps">
           <div class="t-item">
             <span class="t-label">최고</span>
-            <span class="high temp-primary" data-c="36.8" data-f="98.2"></span>
-            <span class="fahrenheit temp-secondary" data-c="36.8" data-f="98.2"></span>
+            <span class="high temp-primary" data-c="37.8" data-f="100.0"></span>
+            <span class="fahrenheit temp-secondary" data-c="37.8" data-f="100.0"></span>
           </div>
           <div class="t-item">
             <span class="t-label">최저</span>
-            <span class="low temp-primary" data-c="26.0" data-f="78.8"></span>
-            <span class="fahrenheit temp-secondary" data-c="26.0" data-f="78.8"></span>
+            <span class="low temp-primary" data-c="26.2" data-f="79.2"></span>
+            <span class="fahrenheit temp-secondary" data-c="26.2" data-f="79.2"></span>
           </div>
         </div>
       </div>
@@ -794,13 +852,13 @@
         <div class="temps">
           <div class="t-item">
             <span class="t-label">최고</span>
-            <span class="high temp-primary" data-c="36.4" data-f="97.5"></span>
-            <span class="fahrenheit temp-secondary" data-c="36.4" data-f="97.5"></span>
+            <span class="high temp-primary" data-c="35.7" data-f="96.3"></span>
+            <span class="fahrenheit temp-secondary" data-c="35.7" data-f="96.3"></span>
           </div>
           <div class="t-item">
             <span class="t-label">최저</span>
-            <span class="low temp-primary" data-c="25.8" data-f="78.4"></span>
-            <span class="fahrenheit temp-secondary" data-c="25.8" data-f="78.4"></span>
+            <span class="low temp-primary" data-c="26.0" data-f="78.8"></span>
+            <span class="fahrenheit temp-secondary" data-c="26.0" data-f="78.8"></span>
           </div>
         </div>
       </div>
@@ -810,7 +868,7 @@
     <div class="panel" id="panel-1" role="tabpanel"
          data-name="서울" data-lat="37.57" data-lon="126.98">
       <div class="air-quality">
-        <span class="aq-badge aq-good">PM2.5: 좋음(5㎍/m³)</span>
+        <span class="aq-badge aq-good">PM2.5: 좋음(7㎍/m³)</span>
         <span class="aq-badge aq-good">UV: 좋음(1)</span>
       </div>
       <div class="grid">
@@ -871,8 +929,7 @@
         </div>
       </div>
 
-      <div class="card latest">
-        <span class="badge">TODAY</span>
+      <div class="card past">
         <div class="date">07월 08일</div>
         <div class="day">수요일</div>
         <div class="icon icon-rain">🌧️</div>
@@ -880,8 +937,8 @@
         <div class="temps">
           <div class="t-item">
             <span class="t-label">최고</span>
-            <span class="high temp-primary" data-c="26.3" data-f="79.3"></span>
-            <span class="fahrenheit temp-secondary" data-c="26.3" data-f="79.3"></span>
+            <span class="high temp-primary" data-c="27.5" data-f="81.5"></span>
+            <span class="fahrenheit temp-secondary" data-c="27.5" data-f="81.5"></span>
           </div>
           <div class="t-item">
             <span class="t-label">최저</span>
@@ -891,7 +948,8 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card latest">
+        <span class="badge">TODAY</span>
         <div class="date">07월 09일</div>
         <div class="day">목요일</div>
         <div class="icon icon-rain">🌦️</div>
@@ -899,13 +957,13 @@
         <div class="temps">
           <div class="t-item">
             <span class="t-label">최고</span>
-            <span class="high temp-primary" data-c="26.7" data-f="80.1"></span>
-            <span class="fahrenheit temp-secondary" data-c="26.7" data-f="80.1"></span>
+            <span class="high temp-primary" data-c="26.5" data-f="79.7"></span>
+            <span class="fahrenheit temp-secondary" data-c="26.5" data-f="79.7"></span>
           </div>
           <div class="t-item">
             <span class="t-label">최저</span>
-            <span class="low temp-primary" data-c="23.3" data-f="73.9"></span>
-            <span class="fahrenheit temp-secondary" data-c="23.3" data-f="73.9"></span>
+            <span class="low temp-primary" data-c="22.8" data-f="73.0"></span>
+            <span class="fahrenheit temp-secondary" data-c="22.8" data-f="73.0"></span>
           </div>
         </div>
       </div>
@@ -918,13 +976,13 @@
         <div class="temps">
           <div class="t-item">
             <span class="t-label">최고</span>
-            <span class="high temp-primary" data-c="28.7" data-f="83.7"></span>
-            <span class="fahrenheit temp-secondary" data-c="28.7" data-f="83.7"></span>
+            <span class="high temp-primary" data-c="27.9" data-f="82.2"></span>
+            <span class="fahrenheit temp-secondary" data-c="27.9" data-f="82.2"></span>
           </div>
           <div class="t-item">
             <span class="t-label">최저</span>
-            <span class="low temp-primary" data-c="22.6" data-f="72.7"></span>
-            <span class="fahrenheit temp-secondary" data-c="22.6" data-f="72.7"></span>
+            <span class="low temp-primary" data-c="23.7" data-f="74.7"></span>
+            <span class="fahrenheit temp-secondary" data-c="23.7" data-f="74.7"></span>
           </div>
         </div>
       </div>
@@ -932,29 +990,230 @@
       <div class="card">
         <div class="date">07월 11일</div>
         <div class="day">토요일</div>
-        <div class="icon icon-rain">🌦️</div>
-        <div class="condition">가벼운 이슬비</div>
+        <div class="icon icon-cloud">☁️</div>
+        <div class="condition">흐림</div>
         <div class="temps">
           <div class="t-item">
             <span class="t-label">최고</span>
-            <span class="high temp-primary" data-c="31.0" data-f="87.8"></span>
-            <span class="fahrenheit temp-secondary" data-c="31.0" data-f="87.8"></span>
+            <span class="high temp-primary" data-c="31.7" data-f="89.1"></span>
+            <span class="fahrenheit temp-secondary" data-c="31.7" data-f="89.1"></span>
           </div>
           <div class="t-item">
             <span class="t-label">최저</span>
-            <span class="low temp-primary" data-c="24.0" data-f="75.2"></span>
-            <span class="fahrenheit temp-secondary" data-c="24.0" data-f="75.2"></span>
+            <span class="low temp-primary" data-c="23.9" data-f="75.0"></span>
+            <span class="fahrenheit temp-secondary" data-c="23.9" data-f="75.0"></span>
           </div>
         </div>
       </div>
       </div>
     </div>
 
+    <section class="chart-section">
+      <div class="chart-card">
+        <h2>이번 주 기온 변화</h2>
+        <div class="chart-sub" id="chartSub">최고기온(빨강) · 최저기온(파랑) — 오늘은 크게 표시</div>
+        <div class="chart-wrap">
+          <canvas id="tempChart"></canvas>
+        </div>
+      </div>
+    </section>
+
     <footer>
       데이터 출처 : weather_log.txt · 알렌 · 서울 일주일 날씨 예보
     </footer>
   </div>
+  <script type="application/json" id="chart-data">{"panel-0": {"name": "알렌", "labels": [["일", "07/05"], ["월", "07/06"], ["화", "07/07"], ["수", "07/08"], ["목", "07/09"], ["금", "07/10"], ["토", "07/11"]], "highsC": [33.0, 35.4, 33.6, 35.6, 38.4, 37.8, 35.7], "highsF": [91.4, 95.7, 92.5, 96.1, 101.1, 100.0, 96.3], "lowsC": [23.0, 23.4, 23.7, 24.6, 27.2, 26.2, 26.0], "lowsF": [73.4, 74.1, 74.7, 76.3, 81.0, 79.2, 78.8], "todayIndex": 4}, "panel-1": {"name": "서울", "labels": [["일", "07/05"], ["월", "07/06"], ["화", "07/07"], ["수", "07/08"], ["목", "07/09"], ["금", "07/10"], ["토", "07/11"]], "highsC": [30.5, 29.0, 29.6, 27.5, 26.5, 27.9, 31.7], "highsF": [86.9, 84.2, 85.3, 81.5, 79.7, 82.2, 89.1], "lowsC": [22.6, 22.7, 22.9, 23.2, 22.8, 23.7, 23.9], "lowsF": [72.7, 72.9, 73.2, 73.8, 73.0, 74.7, 75.0], "todayIndex": 4}}</script>
   <script>
+
+    // ── 주간 기온 라인 그래프 (Chart.js) ─────────────────────
+    var __chartApi = (function () {
+      var dataEl = document.getElementById("chart-data");
+      var canvas = document.getElementById("tempChart");
+      if (!dataEl || !canvas || typeof Chart === "undefined") {
+        return null;
+      }
+
+      var CHART_DATA = {};
+      try {
+        CHART_DATA = JSON.parse(dataEl.textContent);
+      } catch (e) {
+        return null;
+      }
+
+      var HIGH_COLOR = "#ef4444";  // 최고기온 = 빨강
+      var LOW_COLOR = "#3b82f6";   // 최저기온 = 파랑
+      var currentPanel = null;
+
+      function currentUnit() {
+        try {
+          return localStorage.getItem("weather-unit") === "f" ? "f" : "c";
+        } catch (e) {
+          return "c";
+        }
+      }
+
+      function isDark() {
+        return document.documentElement.getAttribute("data-theme") === "dark";
+      }
+
+      // 다크/라이트에 맞는 축·글자·격자·툴팁 색을 돌려준다.
+      function themeColors() {
+        if (isDark()) {
+          return {
+            tick: "#94a3b8",
+            grid: "rgba(255, 255, 255, 0.10)",
+            legend: "#e2e8f0",
+            tooltipBg: "rgba(15, 23, 42, 0.95)",
+            tooltipText: "#e2e8f0",
+            pointBorder: "#1e293b"
+          };
+        }
+        return {
+          tick: "#64748b",
+          grid: "rgba(15, 23, 42, 0.08)",
+          legend: "#1e293b",
+          tooltipBg: "rgba(255, 255, 255, 0.96)",
+          tooltipText: "#1e293b",
+          pointBorder: "#ffffff"
+        };
+      }
+
+      // 오늘 지점만 점을 크게 강조 (데이터 없는 날은 기본값 유지)
+      function pointRadii(arr, todayIndex, base, todaySize) {
+        var out = [];
+        for (var i = 0; i < arr.length; i++) {
+          out.push(i === todayIndex && arr[i] !== null ? todaySize : base);
+        }
+        return out;
+      }
+
+      var chart = new Chart(canvas.getContext("2d"), {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: "최고기온",
+              data: [],
+              borderColor: HIGH_COLOR,
+              backgroundColor: HIGH_COLOR,
+              borderWidth: 2.5,
+              tension: 0.35,
+              spanGaps: true,
+              pointBorderWidth: 2
+            },
+            {
+              label: "최저기온",
+              data: [],
+              borderColor: LOW_COLOR,
+              backgroundColor: LOW_COLOR,
+              borderWidth: 2.5,
+              tension: 0.35,
+              spanGaps: true,
+              pointBorderWidth: 2
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: {
+              labels: { color: "#1e293b", usePointStyle: true, padding: 16 }
+            },
+            tooltip: {
+              backgroundColor: "rgba(255, 255, 255, 0.96)",
+              titleColor: "#1e293b",
+              bodyColor: "#1e293b",
+              borderColor: "rgba(15, 23, 42, 0.1)",
+              borderWidth: 1,
+              padding: 10,
+              callbacks: {
+                label: function (ctx) {
+                  var v = ctx.parsed.y;
+                  var u = currentUnit() === "f" ? "°F" : "°C";
+                  if (v === null || v === undefined) {
+                    return ctx.dataset.label + ": -";
+                  }
+                  return ctx.dataset.label + ": " + v + u;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: "rgba(15, 23, 42, 0.08)" },
+              ticks: { color: "#64748b", font: { size: 12 } }
+            },
+            y: {
+              grid: { color: "rgba(15, 23, 42, 0.08)" },
+              ticks: {
+                color: "#64748b",
+                callback: function (value) {
+                  return value + (currentUnit() === "f" ? "°" : "°");
+                }
+              },
+              title: { display: true, text: "기온 (°C)", color: "#64748b" }
+            }
+          }
+        }
+      });
+
+      // 지정 패널(지역) 데이터 + 현재 단위/테마로 그래프를 다시 그린다.
+      function render(panelId) {
+        if (panelId) {
+          currentPanel = panelId;
+        }
+        var d = CHART_DATA[currentPanel];
+        if (!d) {
+          return;
+        }
+        var unit = currentUnit();
+        var highs = unit === "f" ? d.highsF : d.highsC;
+        var lows = unit === "f" ? d.lowsF : d.lowsC;
+        var c = themeColors();
+
+        chart.data.labels = d.labels;
+        chart.data.datasets[0].data = highs;
+        chart.data.datasets[1].data = lows;
+
+        chart.data.datasets[0].pointRadius = pointRadii(highs, d.todayIndex, 3.5, 8);
+        chart.data.datasets[0].pointHoverRadius = pointRadii(highs, d.todayIndex, 6, 10);
+        chart.data.datasets[1].pointRadius = pointRadii(lows, d.todayIndex, 3.5, 8);
+        chart.data.datasets[1].pointHoverRadius = pointRadii(lows, d.todayIndex, 6, 10);
+
+        chart.data.datasets[0].pointBackgroundColor = HIGH_COLOR;
+        chart.data.datasets[1].pointBackgroundColor = LOW_COLOR;
+        chart.data.datasets[0].pointBorderColor = c.pointBorder;
+        chart.data.datasets[1].pointBorderColor = c.pointBorder;
+
+        var sc = chart.options.scales;
+        sc.x.ticks.color = c.tick;
+        sc.x.grid.color = c.grid;
+        sc.y.ticks.color = c.tick;
+        sc.y.grid.color = c.grid;
+        sc.y.title.text = "기온 (" + (unit === "f" ? "°F" : "°C") + ")";
+        sc.y.title.color = c.tick;
+
+        var pl = chart.options.plugins;
+        pl.legend.labels.color = c.legend;
+        pl.tooltip.backgroundColor = c.tooltipBg;
+        pl.tooltip.titleColor = c.tooltipText;
+        pl.tooltip.bodyColor = c.tooltipText;
+        pl.tooltip.borderColor = c.grid;
+
+        chart.update();
+      }
+
+      return {
+        // 탭 전환 시: 해당 지역 데이터로 그래프 교체
+        update: function (panelId) { render(panelId); },
+        // 테마/단위 변경 시: 현재 지역 그대로 색·값만 갱신
+        refresh: function () { render(null); }
+      };
+    })();
+
     (function () {
       var root = document.documentElement;
       var toggle = document.getElementById("themeToggle");
@@ -977,6 +1236,7 @@
           localStorage.setItem("weather-theme", isDark ? "light" : "dark");
         } catch (e) {}
         syncIcon();
+        if (__chartApi) { __chartApi.refresh(); }
       });
     })();
 
@@ -1022,6 +1282,7 @@
           localStorage.setItem("weather-unit", unit);
         } catch (e) {}
         render();
+        if (__chartApi) { __chartApi.refresh(); }
       });
     })();
 
